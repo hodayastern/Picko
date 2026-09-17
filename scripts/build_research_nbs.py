@@ -771,6 +771,174 @@ learn domain-based routing; if it stays near chance, the distinction is beyond w
 ]
 
 
+# ======================================================================
+# NB3 — Semantic separation via k-fold CV (robust estimate on small data)
+# ======================================================================
+nb3v3 = [
+ md("""# PICKO Research · NB3 — **Semantic separation, k-fold CV**: a robust estimate on little data"""),
+ BOOTSTRAP_MD, BOOTSTRAP, SETUP_MD, SETUP,
+ md("""## 2 · Why k-fold here
+
+Can the model *learn* to route by domain meaning alone (no source name in the query)? With only a couple
+hundred source-free queries, a single test split gives one shaky number. **We run the experiment as k-fold
+cross-validation:** every query serves as test **exactly once**, and we report the mean over folds with a
+std error bar — a distribution instead of a single point, which is what small data needs.
+
+Per fold we train a fresh 2-tool model on the training folds and evaluate it on the held-out fold.
+`before` = the existing name-trained model on the same held-out fold (no semantic training); `after` = the
+fold's freshly trained model. We aggregate all folds at the end."""),
+ nb3v2[6], nb3v2[7],   # reuse the "build the source-free dataset" markdown + code (identical)
+ md("## 4 · Configure"),
+ co('''NB_DIR = os.path.join(OUT_DIR, "nb3"); os.makedirs(NB_DIR, exist_ok=True)   # this notebook's outputs
+K             = 5      # number of folds (each query is test exactly once)
+EPOCHS        = 3
+BATCH_SIZE    = 8
+MAX_GEN_LEN   = 64     # we only score tool SELECTION
+SPLIT_SEED    = 42
+RUN_TRAIN     = True
+FORCE_RETRAIN = False
+BASELINE_CKPT = next((c for c in [os.path.join(OUT_DIR, "nb2", "picko_depth_focus40_best.pkl"),
+                                  os.path.join(OUT_DIR, "nb3_separation", "picko_focus40_best.pkl"),
+                                  os.path.join(OUT_DIR, "nb1", "picko_breadth_focus40_best.pkl")]
+                      if os.path.exists(c)), None)
+print("pair:", PAIR_TOOLS, "| K:", K, "| epochs:", EPOCHS, "| baseline:", BASELINE_CKPT, "| out:", NB_DIR)'''),
+ md("""## 5 · Stratified k-fold split (per tool, non-overlapping)
+
+Each tool's queries are shuffled deterministically and dealt round-robin into K folds, so every fold holds
+~1/K of **each** tool (balanced), the folds never overlap, and together they cover the whole dataset."""),
+ co('''import collections, random as _rk
+by_tool = collections.defaultdict(list)
+for idx, e in enumerate(DATA): by_tool[e["gold"]].append(idx)
+FOLDS = [[] for _ in range(K)]
+for tool, idxs in by_tool.items():
+    idxs = list(idxs); _rk.Random(SPLIT_SEED).shuffle(idxs)
+    for j, ix in enumerate(idxs): FOLDS[j % K].append(ix)      # round-robin -> balanced, non-overlapping
+allix = [j for f in FOLDS for j in f]
+assert len(allix) == len(set(allix)) == len(DATA), "folds overlap or miss examples"
+print("each of", len(DATA), "examples is in exactly one fold")
+for i, f in enumerate(FOLDS):
+    print(f"  fold {i}: n={len(f)} · per domain", dict(collections.Counter(DATA[j]["domain"] for j in f)))'''),
+ md("""## 6 · Run the folds — train and evaluate on the held-out fold
+
+For each fold: build train (the other folds) + test (this fold); train a fresh 2-tool model on train;
+predict on the held-out test; also run the `before` baseline on it. Resumable — a finished fold is loaded
+from `nb3/kfold_results.json` and its training is skipped."""),
+ co('''import contextlib, io
+RES = os.path.join(NB_DIR, "kfold_results.json")
+prev = json.load(open(RES)) if (os.path.exists(RES) and not FORCE_RETRAIN) else {"folds": []}
+fold_rows = {r["fold"]: r for r in prev["folds"]}
+if fold_rows: log(f"resumed {len(fold_rows)} finished fold(s)")
+
+bm = None
+if BASELINE_CKPT: bm, bp, btk = load_model(BASELINE_CKPT)
+_acc = lambda sel: (float(np.mean(sel)) if len(sel) else float("nan"))
+
+t_all = time.time()
+for i in range(K):
+    if i in fold_rows and not FORCE_RETRAIN:
+        log(f"fold {i}: skip (done)"); continue
+    try:
+        test_ix = set(FOLDS[i])
+        train = [DATA[j] for j in range(len(DATA)) if j not in test_ix]
+        test  = [DATA[j] for j in FOLDS[i]]
+        trq = {e["query"] for e in train}                         # held-out queries must be disjoint from train
+        assert not [e for e in test if e["query"] in trq], f"fold {i}: train/test overlap"
+        log(f"fold {i}: train={len(train)} test={len(test)}")
+        # --- AFTER: fresh 2-tool model trained on the training folds (checkpoint reused via finetune_and_eval) ---
+        R = finetune_and_eval(cat, raw, tok, PAIR_TOOLS, f"kfold{i}", NB_DIR,
+                              dataset=train, epochs=EPOCHS, run_train=RUN_TRAIN,
+                              force_retrain=FORCE_RETRAIN, eval_subsample=1,
+                              max_gen_len=MAX_GEN_LEN, batch_size=BATCH_SIZE)
+        am, ap, atk = R["bundle"]
+        with contextlib.redirect_stdout(io.StringIO()):
+            after_preds = predict(am, ap, atk, test, max_gen_len=MAX_GEN_LEN, batch=BATCH_SIZE)
+        after_sel = [s["selected"] for s in evaluate_per_example(test, after_preds)]
+        # --- BEFORE: existing name-trained model on the same held-out fold (no training) ---
+        if bm is not None:
+            with contextlib.redirect_stdout(io.StringIO()):
+                before_preds = predict(bm, bp, btk, test, max_gen_len=MAX_GEN_LEN, batch=BATCH_SIZE)
+            before_sel = [s["selected"] for s in evaluate_per_example(test, before_preds)]
+        else:
+            before_sel = None
+        doms = [e["domain"] for e in test]
+        row = {"fold": i, "n": len(test), "after_overall": _acc(after_sel),
+               "before_overall": (_acc(before_sel) if before_sel is not None else None),
+               "confusion": confusion(test, after_preds)}
+        for d in ["cs", "medicine"]:
+            row[f"after_{d}"]  = _acc([after_sel[k] for k, dm in enumerate(doms) if dm == d])
+            row[f"before_{d}"] = (_acc([before_sel[k] for k, dm in enumerate(doms) if dm == d])
+                                  if before_sel is not None else None)
+        fold_rows[i] = row
+        json.dump({"folds": [fold_rows[k] for k in sorted(fold_rows)]}, open(RES, "w"), indent=2)
+        log(f"fold {i}: after_overall={row['after_overall']:.3f}"
+            + (f" before={row['before_overall']:.3f}" if before_sel is not None else ""))
+    except Exception as ex:
+        log(f"fold {i}: FAILED ({type(ex).__name__}: {ex})")
+log(f"ALL {K} FOLDS DONE in {time.time()-t_all:.0f}s · results={RES}")'''),
+ md("""## 7 · Aggregate across folds (weight the iterations)
+
+`overall`/`cs`/`medicine` are averaged over the K folds -> **mean ± std** (the std is the across-fold
+uncertainty). The confusion matrix pools every fold's held-out predictions, so each query is counted once
+(a true out-of-fold routing matrix over the whole dataset)."""),
+ co('''rows = [fold_rows[k] for k in sorted(fold_rows)]
+fr = pd.DataFrame(rows)
+have_before = fr["before_overall"].notna().any()
+def _ms(col):
+    v = fr[col].dropna().values
+    return (round(float(np.mean(v)), 4), round(float(np.std(v)), 4)) if len(v) else (float("nan"), float("nan"))
+cats = ["overall", "cs", "medicine"]
+summary = []
+for phase in (["before", "after"] if have_before else ["after"]):
+    r = {"phase": phase}
+    for c in cats:
+        mu, sd = _ms(f"{phase}_{c}"); r[c] = mu; r[c + "_std"] = sd
+    summary.append(r)
+POOLED = {}
+for row in rows:
+    for t, d in row.get("confusion", {}).items():
+        POOLED.setdefault(t, {})
+        for p, c in d.items(): POOLED[t][p] = POOLED[t].get(p, 0) + c
+json.dump({"pair": PAIR_TOOLS, "K": K, "folds": rows, "summary": summary, "confusion_oof": POOLED},
+          open(RES, "w"), indent=2)
+log(f"aggregated {len(rows)} folds -> {RES}")
+display(pd.DataFrame(summary))'''),
+ md("## 8 · Plot — before vs after (mean ± std over folds) + pooled out-of-fold routing"),
+ co('''x = np.arange(len(cats)); w = 0.8 / max(len(summary), 1)
+palette = {"before": "#8a8a8a", "after": "#009E73"}
+fig, (ax, ax2) = plt.subplots(1, 2, figsize=(12, 4.6), gridspec_kw={"width_ratios": [1.5, 1]})
+for j, r in enumerate(summary):
+    vals = [r.get(c, np.nan) for c in cats]; errs = [r.get(c + "_std", 0) for c in cats]
+    off = (j - (len(summary) - 1) / 2) * w
+    ax.bar(x + off, vals, w, yerr=errs, capsize=4, color=palette.get(r["phase"], "#0072B2"),
+           edgecolor="white", lw=0.6, label=r["phase"])
+    for k, v in enumerate(vals):
+        if not np.isnan(v): ax.text(x[k] + off, min(v + errs[k] + 0.03, 1.05), f"{v:.2f}", ha="center", fontsize=9)
+ax.axhline(0.5, color="#C44E52", ls="--", lw=1.2, label="chance (2-way)")
+ax.set_xticks(x); ax.set_xticklabels(cats); ax.set_ylim(0, 1.12); ax.set_ylabel("Tool-selection accuracy")
+ax.set_title(f"Semantic routing — {K}-fold CV (mean +/- std)"); ax.legend(loc="lower right")
+if sns: sns.despine(ax=ax)
+ax.grid(axis="y", color="#cccccc", lw=0.6, alpha=0.6); ax.set_axisbelow(True)
+
+M = pd.DataFrame(0, index=PAIR_TOOLS, columns=PAIR_TOOLS)
+for t, d in POOLED.items():
+    for p, c in d.items():
+        if t in PAIR_TOOLS and p in PAIR_TOOLS: M.loc[t, p] = c
+short = lambda n: n.replace("_search_papers", "").replace("_search_articles", "")
+if sns:
+    sns.heatmap(M.div(M.sum(1).replace(0, 1), axis=0), cmap="Greens", vmin=0, vmax=1, cbar=False,
+                annot=M.values, fmt="d", linewidths=0.5, linecolor="white", ax=ax2,
+                xticklabels=[short(c) for c in M.columns], yticklabels=[short(r) for r in M.index])
+ax2.set_title("Out-of-fold routing (all folds pooled)"); ax2.set_xlabel("predicted"); ax2.set_ylabel("true domain tool")
+plt.tight_layout(); save_fig("semantic_kfold", out_dir=NB_DIR); plt.show()'''),
+ md("""## 9 · Read-out
+
+Every source-free query is tested exactly once by a model that never trained on it, so the k-fold mean is a
+trustworthy estimate on this small dataset. If **after** sits clearly above **before** and above the 0.5
+chance line across folds — with a small std — the domain distinction is genuinely learnable; a large std or
+overlap with chance means the signal is weak for a 26M model on this little data."""),
+]
+
+
 def write(cells, name):
     for j, c in enumerate(cells):
         c["id"] = f"c{j:02d}"
@@ -788,4 +956,4 @@ if __name__ == "__main__":
     write(nb1,   "nb1_breadth_amount.ipynb")
     write(nb2v2, "nb2_depth_by_example.ipynb")
     write(nb3,   "nb3_separation_ambiguous.ipynb")
-    write(nb3v2, "nb3_semantic_separation.ipynb")
+    write(nb3v3, "nb3_semantic_separation.ipynb")   # k-fold CV version

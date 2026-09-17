@@ -22,7 +22,7 @@ natural-language prompt. The research question: *how far can a tiny model go as 
 | `nb1_breadth_amount` | **Breadth** | How many tools can it choose among before it picks the wrong one? | tool-selection accuracy vs *k* offered tools |
 | `nb2_depth_by_example` | **Depth** | Given the right tool, does argument extraction get harder as a call has more arguments? | `args_exact` / `param_f1` bucketed by **#arguments per example** |
 | `nb3_separation_ambiguous` | **Separation** | Can it tell curated look-alike tools apart (same action across sources, same source across actions)? | per-group selection accuracy + confusion |
-| `nb3_semantic_separation` | **Semantic separation** | Can it *learn* to route between look-alike tools by **domain meaning alone**, when the query never names the source? | before-vs-after selection accuracy on a held-out test |
+| `nb3_semantic_separation` | **Semantic separation** | Can it *learn* to route between look-alike tools by **domain meaning alone**, when the query never names the source? | before-vs-after selection accuracy, **5-fold CV** (mean ± std) |
 
 The two `nb3` notebooks are complementary: **`nb3_separation_ambiguous`** probes disambiguation on the
 existing name-containing data (queries often name the source), while **`nb3_semantic_separation`** removes
