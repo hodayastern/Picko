@@ -1,0 +1,27 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# --- OS / editors ---
+.DS_Store
+.ipynb_checkpoints/
+
+# --- secrets ---
+.env
+
+# --- JAX / training artifacts ---
+.jax_cache/
+checkpoints/
+wandb/
+*.pkl
+
+# --- large / derived data (kept on Google Drive, not in git) ---
+# Ignore all datasets, then allow only the small committed inputs.
+data/*.jsonl
+!data/picko_semantic_probe.jsonl
+picko_balanced.jsonl
+picko_gen.jsonl

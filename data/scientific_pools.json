@@ -1,0 +1,193 @@
+{
+  "pubmed": [
+    {
+      "name": "pubmed_search_articles",
+      "description": "Search PubMed for articles matching a query.",
+      "parameters": {
+        "query": {
+          "type": "string",
+          "description": "Search query (e.g., \"COVID-19 vaccines\", \"machine learning AND healthcare\")",
+          "required": true
+        },
+        "max_results": {
+          "type": "integer",
+          "description": "Maximum results to return (default: 20, max: 200)",
+          "required": false
+        },
+        "sort": {
+          "type": "string",
+          "description": "Sort order - \"relevance\", \"pub_date\", or \"first_author\" (default: \"relevance\")",
+          "required": false
+        }
+      }
+    },
+    {
+      "name": "pubmed_download_article",
+      "description": "Download article details by PubMed ID.",
+      "parameters": {
+        "pmid": {
+          "type": "string",
+          "description": "PubMed ID (e.g., \"33073741\")",
+          "required": true
+        },
+        "format_type": {
+          "type": "string",
+          "description": "Content format - \"abstract\", \"medline\", or \"full\" (default: \"abstract\")",
+          "required": false
+        },
+        "return_mode": {
+          "type": "string",
+          "description": "Return format - \"xml\", \"text\", or \"json\" (default: \"xml\")",
+          "required": false
+        }
+      }
+    }
+  ],
+  "arxiv": [
+    {
+      "name": "arxiv_search_papers",
+      "description": "Search arXiv by query, category, date range, and sort order.",
+      "parameters": {
+        "query": {
+          "type": "string",
+          "description": "Search query keywords or boolean expression (e.g., \"KAN\" OR \"Kolmogorov-Arnold Networks\").",
+          "required": true
+        },
+        "categories": {
+          "type": "array",
+          "description": "List of arXiv categories to filter by (e.g., [\"cs.LG\", \"cs.AI\"]).",
+          "required": false
+        },
+        "max_results": {
+          "type": "integer",
+          "description": "Maximum number of search results to return.",
+          "required": false
+        },
+        "date_from": {
+          "type": "string",
+          "description": "Start date for publication filtering (e.g., \"2024-01-01\").",
+          "required": false
+        },
+        "date_to": {
+          "type": "string",
+          "description": "End date for publication filtering (e.g., \"2024-12-31\").",
+          "required": false
+        },
+        "sort_by": {
+          "type": "string",
+          "description": "Sort order for results - \"relevance\" or \"date\" (default: \"relevance\").",
+          "required": false
+        }
+      }
+    },
+    {
+      "name": "arxiv_get_abstract",
+      "description": "Fetch metadata and an abstract by arXiv ID without downloading the paper.",
+      "parameters": {
+        "paper_id": {
+          "type": "string",
+          "description": "arXiv paper ID (e.g., \"2404.19756\").",
+          "required": true
+        }
+      }
+    }
+  ],
+  "wikipedia": [
+    {
+      "name": "wikipedia_search_wikipedia",
+      "description": "Search Wikipedia for articles matching a query.",
+      "parameters": {
+        "query": {
+          "type": "string",
+          "description": "The search query or term.",
+          "required": true
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Maximum number of results to return (default: 10).",
+          "required": false
+        }
+      }
+    },
+    {
+      "name": "wikipedia_extract_key_facts",
+      "description": "Extract bulleted key facts from a Wikipedia article or a specific topic within it.",
+      "parameters": {
+        "title": {
+          "type": "string",
+          "description": "The title of the Wikipedia article.",
+          "required": true
+        },
+        "topic_within_article": {
+          "type": "string",
+          "description": "A specific topic within the article to focus fact extraction on.",
+          "required": false
+        },
+        "count": {
+          "type": "integer",
+          "description": "Number of key facts to extract (default: 5).",
+          "required": false
+        }
+      }
+    }
+  ],
+  "huggingface": [
+    {
+      "name": "hf_paper_search",
+      "description": "Find Machine Learning research papers on the Hugging Face hub. Include 'Link to paper' when presenting the results. Consider whether tabulating results matches user intent.",
+      "parameters": {
+        "query": {
+          "type": "string",
+          "description": "Semantic Search query.",
+          "required": true
+        },
+        "results_limit": {
+          "type": "integer",
+          "description": "Number of results to return.",
+          "required": false
+        },
+        "concise_only": {
+          "type": "boolean",
+          "description": "Return a 2 sentence summary of the abstract. Use for broad search terms.",
+          "required": false
+        }
+      }
+    },
+    {
+      "name": "hf_model_search",
+      "description": "Find Machine Learning models hosted on Hugging Face. Returns comprehensive information about matching models including downloads, likes, tags, and direct links. Include links to the models in your response.",
+      "parameters": {
+        "query": {
+          "type": "string",
+          "description": "Search term. Leave blank and specify \"sort\" and \"limit\" to get e.g. \"Top 20 trending models\".",
+          "required": false
+        },
+        "author": {
+          "type": "string",
+          "description": "Organization or user who created the model (e.g., \"google\", \"meta-llama\", \"microsoft\").",
+          "required": false
+        },
+        "task": {
+          "type": "string",
+          "description": "Model task type (e.g., \"text-generation\", \"image-classification\", \"translation\").",
+          "required": false
+        },
+        "library": {
+          "type": "string",
+          "description": "Framework the model uses (e.g., \"transformers\", \"diffusers\", \"timm\").",
+          "required": false
+        },
+        "sort": {
+          "type": "string",
+          "description": "Sort order: trendingScore, downloads, likes, createdAt, lastModified.",
+          "required": false
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Maximum number of results to return.",
+          "required": false
+        }
+      }
+    }
+  ]
+}

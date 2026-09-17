@@ -1,0 +1,21 @@
+# PICKO Python dependencies.
+#
+# Needle itself is NOT listed here — install the upstream package separately (see README > Setup):
+#   git clone https://github.com/cactus-compute/needle.git
+#   cd needle && git checkout 34861f39ae292429f80a62c96abe83218a852d57 && cd ..
+#   pip install -e ./needle
+#
+# Pinned JAX/Flax — Needle needs this exact set (newer JAX crashes on Colab).
+jax[cuda12]==0.10.2   # drop [cuda12] for CPU-only
+jaxlib==0.10.2
+flax==0.12.8
+
+# Notebook / analysis stack
+pandas
+numpy
+matplotlib
+seaborn
+tqdm
+
+# Data generation (notebook 01)
+google-genai
