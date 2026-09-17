@@ -366,7 +366,7 @@ ex_rows = [{"group": g, "axis": AXIS.get(g, ""), "tool": t, "example_query": sam
            for g, tools in SIMILAR_GROUPS.items() for t in tools]
 display(pd.DataFrame(ex_rows))'''),
  md("## 4 · Train the model (40 focus tools)\\nTrained once to Drive and reused; the returned `test` set is the held-out split the group probes run on."),
- co('''NB_DIR = os.path.join(OUT_DIR, "nb3"); os.makedirs(NB_DIR, exist_ok=True)   # this notebook's outputs
+ co('''NB_DIR = os.path.join(OUT_DIR, "nb3_separation"); os.makedirs(NB_DIR, exist_ok=True)   # this notebook's outputs
 CAP_PER_TOOL, EPOCHS, BATCH_SIZE = 120, 1, 8   # examples/tool -> 100 train / 10 val / 10 test; BATCH_SIZE: lower to 4 on OOM
 RUN_TRAIN, FORCE_RETRAIN = True, False
 FOCUS40 = finetune_and_eval(cat, raw, tok, FOCUS, "focus40", NB_DIR,
@@ -376,7 +376,7 @@ FOCUS40 = finetune_and_eval(cat, raw, tok, FOCUS, "focus40", NB_DIR,
 m40, p40, tk40 = FOCUS40["bundle"]
 TEST = FOCUS40["test"]                     # held-out test queries (never trained on)
 log(f"focus40 selection_acc={FOCUS40['metrics']['selection_acc']:.3f} · held-out test={len(TEST)}")'''),
- md("## 5 · Per-group disambiguation\\nFor each group we take the held-out queries whose gold tool is in the group and offer the full group. Resumable: finished groups persist to `nb3/separation_results.json`."),
+ md("## 5 · Per-group disambiguation\\nFor each group we take the held-out queries whose gold tool is in the group and offer the full group. Resumable: finished groups persist to `nb3_separation/separation_results.json`."),
  co('''import contextlib, io
 RES = os.path.join(NB_DIR, "separation_results.json")
 prev = json.load(open(RES)) if (os.path.exists(RES) and not FORCE_RETRAIN) else {"per_group": [], "confusion": {}}
@@ -688,6 +688,7 @@ MAX_GEN_LEN   = 64     # we only score tool SELECTION
 RUN_TRAIN     = True
 FORCE_RETRAIN = False
 BASELINE_CKPT = next((c for c in [os.path.join(OUT_DIR, "nb2", "picko_depth_focus40_best.pkl"),
+                                  os.path.join(OUT_DIR, "nb3_separation", "picko_focus40_best.pkl"),
                                   os.path.join(OUT_DIR, "nb1", "picko_breadth_focus40_best.pkl")]
                       if os.path.exists(c)), None)
 print("pair:", PAIR_TOOLS, "| epochs:", EPOCHS, "| baseline:", BASELINE_CKPT, "| out:", NB_DIR)'''),
@@ -708,7 +709,7 @@ if BASELINE_CKPT:
     log(f"BASELINE (name-trained model, no semantic training): selection={base_m['selection_acc']:.3f}")
 else:
     base_preds, base_m = None, None
-    log("no baseline checkpoint found (run nb1/nb2 first) — skipping the 'before' comparison")'''),
+    log("no baseline checkpoint found (run nb1/nb2/nb3_separation first) — skipping the 'before' comparison")'''),
  md("## 7 · Train the 2-tool semantic model\\nTrained on the source-free difference only; the returned held-out `test` + `preds` are scored below. Resumable to Drive."),
  co('''R = finetune_and_eval(cat, raw, tok, PAIR_TOOLS, "semantic_pair", NB_DIR,
                       dataset=DATA, epochs=EPOCHS, run_train=RUN_TRAIN,
@@ -786,4 +787,5 @@ def write(cells, name):
 if __name__ == "__main__":
     write(nb1,   "nb1_breadth_amount.ipynb")
     write(nb2v2, "nb2_depth_by_example.ipynb")
+    write(nb3,   "nb3_separation_ambiguous.ipynb")
     write(nb3v2, "nb3_semantic_separation.ipynb")

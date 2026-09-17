@@ -1,6 +1,12 @@
 # results/
 
-Figures and `*_results.json` for the write-up go here (empty for now).
+Figures for the write-up. Each is produced by re-running the matching notebook into
+`MyDrive/picko/picko_out/` on Colab.
 
-Each research notebook writes them to `MyDrive/picko/picko_out/nbN/` on Colab —
-copy the final ones in before submission.
+| Figure | Notebook |
+|---|---|
+| `fig_breadth.png` | `nb1_breadth_amount` — selection accuracy vs #tools offered |
+| `depth_by_example.png` | `nb2_depth_by_example` — args_exact / param_f1 by #arguments |
+| `separation_bars.png` | `nb3_separation_ambiguous` — per-group disambiguation accuracy |
+| `confusion_grid.png` | `nb3_separation_ambiguous` — who gets mistaken for whom |
+| `semantic_learnability.png` | `nb3_semantic_separation` — before vs after domain routing |

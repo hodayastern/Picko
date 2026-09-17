@@ -21,7 +21,12 @@ natural-language prompt. The research question: *how far can a tiny model go as 
 |---|---|---|---|
 | `nb1_breadth_amount` | **Breadth** | How many tools can it choose among before it picks the wrong one? | tool-selection accuracy vs *k* offered tools |
 | `nb2_depth_by_example` | **Depth** | Given the right tool, does argument extraction get harder as a call has more arguments? | `args_exact` / `param_f1` bucketed by **#arguments per example** |
-| `nb3_semantic_separation` | **Semantic separation** | Can it learn to route between look-alike tools by **domain meaning alone**, when the query never names the source? | before-vs-after selection accuracy on a held-out test |
+| `nb3_separation_ambiguous` | **Separation** | Can it tell curated look-alike tools apart (same action across sources, same source across actions)? | per-group selection accuracy + confusion |
+| `nb3_semantic_separation` | **Semantic separation** | Can it *learn* to route between look-alike tools by **domain meaning alone**, when the query never names the source? | before-vs-after selection accuracy on a held-out test |
+
+The two `nb3` notebooks are complementary: **`nb3_separation_ambiguous`** probes disambiguation on the
+existing name-containing data (queries often name the source), while **`nb3_semantic_separation`** removes
+the source name and asks whether the distinction is *learnable* from domain meaning alone.
 
 A recurring finding: the base model usually names a *plausible* tool but botches the **arguments** —
 fine-tuning's main win is parameter extraction, not selection. `nb2` studies exactly that frontier, and
@@ -62,8 +67,9 @@ notebooks/
   research/
     nb1_breadth_amount.ipynb
     nb2_depth_by_example.ipynb
-    nb3_semantic_separation.ipynb
-results/                               figures + *_results.json for the write-up (add after running the notebooks)
+    nb3_separation_ambiguous.ipynb     Separation (curated look-alike groups)
+    nb3_semantic_separation.ipynb      Semantic separation (learn to route by domain)
+results/                               figures for the write-up (one per notebook)
 ```
 
 The 26 MB training pool `picko_training_pool.jsonl` is **not** committed — see [Data](#data).
@@ -100,7 +106,7 @@ per-tool coverage → balance). It is git-ignored, so upload it once to Google D
 MyDrive/picko/
   picko_training_pool.jsonl        <- upload this (the only manual step)
   picko_out/                  <- auto-created: checkpoints, *_results.json, run.log, figures
-    nb1/ nb2/ nb3/
+    nb1/ nb2/ nb3_separation/ nb3/
 ```
 
 Because `picko_out/` lives on Drive, a Colab restart **resumes** and skips finished work. The two
@@ -113,10 +119,11 @@ so they arrive with the clone — no upload needed.
 
 1. Runtime → Change runtime type → **GPU** (L4 recommended; T4/A100 fine).
 2. Open a research notebook, run **cell 0** (bootstrap), then top-to-bottom.
-3. **Order:** run `nb1` and/or `nb2` before `nb3` — `nb3`'s baseline reuses the focus-model checkpoint
-   that `nb2` writes to Drive (it logs "no baseline — skipping" if absent).
+3. **Order:** run `nb1`, `nb2`, or `nb3_separation_ambiguous` before `nb3_semantic_separation` — the
+   semantic notebook's baseline reuses a 40-focus checkpoint any of them writes to Drive (it logs
+   "no baseline — skipping" if none is present).
 
-Each notebook writes its checkpoint, `*_results.json`, and figures into `picko_out/nbN/` on Drive.
+Each notebook writes its checkpoint, `*_results.json`, and figures into its own `picko_out/` subfolder.
 
 ## Regenerating the notebooks
 
