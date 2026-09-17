@@ -42,7 +42,7 @@ IN_COLAB = "google.colab" in sys.modules
 NEEDLE_REPO = "https://github.com/cactus-compute/needle.git"
 NEEDLE_SHA  = "34861f39ae292429f80a62c96abe83218a852d57"   # pinned; has _per_tool_split — update if upstream drifts
 # This PICKO repo — the scripts/notebooks/data imported below.
-PICKO_REPO   = "https://github.com/HadarBit/picko.git"     # <- set to your submission repo URL
+PICKO_REPO   = "https://github.com/hodayastern/Picko.git"  # this submission repo
 PICKO_BRANCH = "main"
 if IN_COLAB:
     if not os.path.exists("/content/needle"):
