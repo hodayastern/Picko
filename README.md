@@ -46,10 +46,10 @@ full_tools_53tools_11products.json     master tool catalog (75 tools, 11 familie
 11tools_11products.json                one representative tool per family
 tools_metadata.csv                     family -> category + argument counts
 data/
-  scientific_pools.json                generator input (topic pools)
-  cs_sematnic.json                     nb3 source-free CS queries
-  samentic_clinique.json               nb3 source-free medical queries
-  picko_semantic_probe.jsonl           nb3 prebuilt fallback dataset
+  scientific_pools.json                the 40 focus tools by family — data-generation input
+  semantic/cs.json                     nb3 source-free CS queries (-> arxiv)
+  semantic/medicine.json               nb3 source-free medical queries (-> pubmed)
+  semantic/probe.jsonl                 nb3 prebuilt fallback dataset
 scripts/
   tool_catalog.py                      Catalog: load/slice tools, restrict_dataset()
   research_sets.py                     focus families, buckets, look-alike groups
@@ -63,10 +63,10 @@ notebooks/
     nb1_breadth_amount.ipynb
     nb2_depth_by_example.ipynb
     nb3_semantic_separation.ipynb
-results/                               committed figures + *_results.json for the write-up
+results/                               figures + *_results.json for the write-up (add after running the notebooks)
 ```
 
-The 26 MB training pool `picko_balanced.jsonl` is **not** committed — see [Data](#data).
+The 26 MB training pool `picko_training_pool.jsonl` is **not** committed — see [Data](#data).
 
 ---
 
@@ -92,20 +92,20 @@ if upstream ever drifts. Set the two repo variables at the top of that cell to y
 
 ## Data
 
-All experiments are scoped from one balanced pool, **`picko_balanced.jsonl`** (75 tools × 120 positives +
+All experiments are scoped from one balanced pool, **`picko_training_pool.jsonl`** (75 tools × 120 positives +
 120 negatives ≈ 9,120 lines, ~26 MB), built by `notebooks/01_generate_data.ipynb` (Gemini synthesis →
 per-tool coverage → balance). It is git-ignored, so upload it once to Google Drive:
 
 ```
 MyDrive/picko/
-  picko_balanced.jsonl        <- upload this (the only manual step)
+  picko_training_pool.jsonl        <- upload this (the only manual step)
   picko_out/                  <- auto-created: checkpoints, *_results.json, run.log, figures
     nb1/ nb2/ nb3/
 ```
 
 Because `picko_out/` lives on Drive, a Colab restart **resumes** and skips finished work. The two
-source-free query files for `nb3` (`cs_sematnic.json`, `samentic_clinique.json`) are committed, so they
-arrive with the clone — no upload needed.
+source-free query files for `nb3` (`data/semantic/cs.json`, `data/semantic/medicine.json`) are committed,
+so they arrive with the clone — no upload needed.
 
 ---
 

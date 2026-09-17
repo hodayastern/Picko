@@ -32,8 +32,8 @@ This cell clones **upstream Needle** (Cactus, pinned commit) and installs it, cl
 pins the exact JAX/Flax, mounts Drive, and points **both** the data (in) and the checkpoints+results (out)
 at your **`MyDrive/picko/`** folder — so a runtime restart loses nothing.
 
-**Prerequisite (one-time):** `picko_balanced.jsonl` must be in `MyDrive/picko/`. **Running locally?** This
-cell is a no-op — install Needle yourself (`pip install -e /path/to/needle`) and skip to cell 1.""")
+**Prerequisite (one-time):** `picko_training_pool.jsonl` must be in `MyDrive/picko/`. **Running locally?**
+This cell is a no-op — install Needle yourself (`pip install -e /path/to/needle`) and skip to cell 1.""")
 
 BOOTSTRAP = co('''# --- Colab bootstrap (safe to re-run; no-op locally) ---
 import os, sys
@@ -58,14 +58,14 @@ if IN_COLAB:
     os.environ["PICKO_OUT_DIR"] = f"{DRIVE}/picko_out"          # checkpoints + results (durable)
     os.environ["PICKO_LOG"]     = f"{DRIVE}/picko_out/run.log"  # durable log across restarts
     os.makedirs(os.environ["PICKO_OUT_DIR"], exist_ok=True)
-    dst = "/content/picko/data/picko_balanced.jsonl"
+    dst = "/content/picko/data/picko_training_pool.jsonl"
     if not os.path.exists(dst):
-        cands = [f"{DRIVE}/picko_balanced.jsonl", "/content/drive/MyDrive/picko_balanced.jsonl"]
+        cands = [f"{DRIVE}/picko_training_pool.jsonl", "/content/drive/MyDrive/picko_training_pool.jsonl"]
         src = next((c for c in cands if os.path.exists(c)), None)
         if src is None:
             have = os.listdir(DRIVE) if os.path.isdir(DRIVE) else "(MyDrive/picko not found)"
             raise FileNotFoundError(
-                "picko_balanced.jsonl not found. Upload it to MyDrive/picko/. "
+                "picko_training_pool.jsonl not found. Upload it to MyDrive/picko/. "
                 f"Currently in {DRIVE}: {have}")
         os.makedirs(os.path.dirname(dst), exist_ok=True); shutil.copy(src, dst)
         print("copied data from", src)
@@ -633,14 +633,14 @@ signal lifts it well above 50%, the distinction **is learnable** and the origina
 it."""),
  md("""## 3 · Build the source-free dataset
 
-Reads the two domain query files (`cs_sematnic.json` → arxiv, `samentic_clinique.json` → pubmed), drops any
-query that still leaks a source name (safety net), and bakes the offered pair (full schema, order randomised)
-into each row — the standard `{query, tools, answers}` format. Only the **unnamed** (source-free) queries are
-used here. Falls back to the prebuilt `picko_semantic_probe.jsonl` if the raw files aren't present."""),
+Reads the two domain query files (`data/semantic/cs.json` → arxiv, `data/semantic/medicine.json` → pubmed),
+drops any query that still names a source (safety net), and bakes the offered pair (full schema, order
+randomised) into each row — the standard `{query, tools, answers}` format. Only the **unnamed** (source-free)
+queries are used here. Falls back to the prebuilt `data/semantic/probe.jsonl` if the raw files aren't present."""),
  co('''import re, collections, random as _rnd
 BANNED = r"\\b(arxiv|arxiv\\.org|pubmed|medline|ncbi|pmid|biorxiv|medrxiv|preprint|wikipedia|wiki|hugging\\s*face|huggingface|semantic scholar)\\b"
 DOMAIN = {"arxiv_search_papers": ("cs", "arXiv"), "pubmed_search_articles": ("medicine", "PubMed")}
-RAWFILE = {"arxiv_search_papers": "cs_sematnic.json", "pubmed_search_articles": "samentic_clinique.json"}
+RAWFILE = {"arxiv_search_papers": "semantic/cs.json", "pubmed_search_articles": "semantic/medicine.json"}
 PAIR_TOOLS = list(DOMAIN)                       # the forced 2-way choice
 
 def _find(name):
@@ -666,13 +666,14 @@ if all(raw_paths.values()):
             seen.add(key)
             DATA.append({"query": q, "tools": _tools_json(i), "answers": ans,
                          "gold": gold, "domain": domain}); i += 1
-    pp = os.path.join(ROOT, "data", "picko_semantic_train.jsonl")
+    pp = os.path.join(ROOT, "data", "semantic", "train.jsonl")
+    os.makedirs(os.path.dirname(pp), exist_ok=True)
     with open(pp, "w") as f:
         for r in DATA: f.write(json.dumps(r, ensure_ascii=False) + "\\n")
     log(f"built source-free dataset ({len(DATA)} rows) → {pp}")
 else:
-    pp = _find("picko_semantic_probe.jsonl")
-    if not pp: raise FileNotFoundError("need cs_sematnic.json + samentic_clinique.json (or picko_semantic_probe.jsonl) in data/ or Drive")
+    pp = _find("semantic/probe.jsonl")
+    if not pp: raise FileNotFoundError("need data/semantic/cs.json + medicine.json (or probe.jsonl) in data/ or Drive")
     DATA = [r for r in (json.loads(l) for l in open(pp) if l.strip()) if r.get("condition", "unnamed") == "unnamed"]
     log(f"loaded {len(DATA)} source-free rows from {pp}")
 

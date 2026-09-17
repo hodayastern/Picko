@@ -158,7 +158,7 @@ def load_context():
     the persistent output dir (Drive on Colab via PICKO_OUT_DIR, else <ROOT>/checkpoints)."""
     cat = Catalog()
     tok = get_tokenizer()
-    data_path = os.path.join(ROOT, "data", "picko_balanced.jsonl")
+    data_path = os.path.join(ROOT, "data", "picko_training_pool.jsonl")
     raw = [json.loads(l) for l in open(data_path) if l.strip()]
     focus = focus_names(cat)
     out_dir = os.environ.get("PICKO_OUT_DIR") or os.path.join(ROOT, "checkpoints")
